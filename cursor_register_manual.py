@@ -52,8 +52,7 @@ class CursorRegistration:
         self.password = self._generate_password()
         self.first_name = self.faker.first_name()
         self.last_name = self.faker.last_name()
-        
-        # modify the first letter of the first name(keep the original function)
+          # modify the first letter of the first name(keep the original function)
         new_first_letter = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         self.first_name = new_first_letter + self.first_name[1:]
         
@@ -65,27 +64,143 @@ class CursorRegistration:
         """Generate password"""
         return self.faker.password(length=length, special_chars=True, digits=True, upper_case=True, lower_case=True)
 
+    def _get_email_config_file(self):
+        """Get email configuration file path"""
+        try:
+            # Try to get Documents path safely
+            if hasattr(self, '_get_user_documents_path'):
+                documents_path = self._get_user_documents_path()
+            else:
+                # Fallback method
+                import platform
+                if platform.system() == "Windows":
+                    documents_path = os.path.join(os.path.expanduser("~"), "Documents")
+                else:
+                    documents_path = os.path.join(os.path.expanduser("~"), "Documents")
+            
+            config_dir = os.path.join(documents_path, ".cursor-free-vip")
+            if not os.path.exists(config_dir):
+                os.makedirs(config_dir, exist_ok=True)
+            return os.path.join(config_dir, "email_config.txt")
+        except Exception:
+            # Final fallback to current directory
+            return "email_config.txt"
+
+    def _read_email_config(self):
+        """Read email configuration (template and counter)"""
+        config_file = self._get_email_config_file()
+        try:
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    lines = f.read().strip().split('\n')
+                    if len(lines) >= 2:
+                        template = lines[0]
+                        counter = int(lines[1])
+                        return template, counter
+            return None, 0
+        except Exception:
+            return None, 0
+
+    def _write_email_config(self, template, counter, current_email=None):
+        """Write email configuration (template, counter and current email)"""
+        config_file = self._get_email_config_file()
+        try:
+            with open(config_file, 'w', encoding='utf-8') as f:
+                f.write(f"{template}\n{counter}")
+                if current_email:
+                    f.write(f"\n{current_email}")
+            return True
+        except Exception:
+            return False
+
+    def _generate_auto_email(self):
+        """Generate automatic email with counter based on template"""
+        template, counter = self._read_email_config()
+        
+        if template is None:
+            # First time - ask user for template
+            print(f"{Fore.CYAN}{EMOJI['MAIL']} {self.translator.get('register.first_time_email_setup') if self.translator else 'First time email setup - please enter your email template:'}")
+            print(f"{Fore.YELLOW}{EMOJI['INFO']} {self.translator.get('register.email_template_example') if self.translator else 'Example: aicraft01@2925.com (numbers will be added automatically)'}")
+            template = input(f"{Fore.CYAN}> {Style.RESET_ALL}").strip()
+            
+            if '@' not in template:
+                print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('register.invalid_email_template') if self.translator else 'Invalid email template'}{Style.RESET_ALL}")
+                return None, None
+            
+            # Save initial template with counter 0
+            self._write_email_config(template, 0)
+            counter = 0
+        
+        # Generate email based on template and counter
+        if counter == 0:
+            # First email uses template as is
+            email = template
+        else:
+            # Add counter to the local part of email
+            local_part, domain = template.split('@', 1)
+            email = f"{local_part}{counter:05X}@{domain}"  # 5-digit hex format
+          # Increment counter for next use
+        self._write_email_config(template, counter + 1)
+        
+        return email, counter
+
     def setup_email(self):
         """Setup Email"""
         try:
-            # Try to get a suggested email
-            account_manager = AccountManager(self.translator)
-            suggested_email = account_manager.suggest_email(self.first_name, self.last_name)
+            print(f"{Fore.CYAN}{EMOJI['START']} {self.translator.get('register.email_options') if self.translator else 'Email Options:'}")
+            print(f"{Fore.CYAN}1. {self.translator.get('register.use_auto_email') if self.translator else '使用无限邮（仅首次输入邮箱）'}")
+            print(f"{Fore.CYAN}2. {self.translator.get('register.use_suggested_email') if self.translator else 'Use suggested email'}")
+            print(f"{Fore.CYAN}3. {self.translator.get('register.manual_email_input') if self.translator else 'Enter custom email'}")
             
-            if suggested_email:
-                print(f"{Fore.CYAN}{EMOJI['START']} {self.translator.get('register.suggest_email', suggested_email=suggested_email) if self.translator else f'Suggested email: {suggested_email}'}")
-                print(f"{Fore.CYAN}{EMOJI['START']} {self.translator.get('register.use_suggested_email_or_enter') if self.translator else 'Type "yes" to use this email or enter your own email:'}")
-                user_input = input().strip()
+            choice = input(f"{self.translator.get('register.choose_option') if self.translator else 'Choose option (1-3): '}").strip()
+            
+            if choice == '1':
+                # Use automatic email with counter
+                result = self._generate_auto_email()
+                if result is None or result[0] is None:
+                    print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('register.email_template_failed') if self.translator else 'Failed to setup email template'}{Style.RESET_ALL}")
+                    return False
                 
-                if user_input.lower() == 'yes' or user_input.lower() == 'y':
-                    self.email_address = suggested_email
+                auto_email, counter = result
+                self.email_address = auto_email
+                print(f"{Fore.GREEN}{EMOJI['MAIL']} {self.translator.get('register.auto_email_generated') if self.translator else 'Auto email generated'}: {auto_email}")
+                print(f"{Fore.YELLOW}{EMOJI['INFO']} {self.translator.get('register.current_counter') if self.translator else 'Current counter'}: {counter} (0x{format(counter, '05X')})")
+                
+            elif choice == '2':
+                # Use suggested email (original logic)
+                account_manager = AccountManager(self.translator)
+                suggested_email = account_manager.suggest_email(self.first_name, self.last_name)
+                
+                if suggested_email:
+                    print(f"{Fore.CYAN}{EMOJI['START']} {self.translator.get('register.suggest_email', suggested_email=suggested_email) if self.translator else f'Suggested email: {suggested_email}'}")
+                    print(f"{Fore.CYAN}{EMOJI['START']} {self.translator.get('register.use_suggested_email_or_enter') if self.translator else 'Type \"yes\" to use this email or enter your own email:'}")
+                    user_input = input().strip()
+                    
+                    if user_input.lower() == 'yes' or user_input.lower() == 'y':
+                        self.email_address = suggested_email
+                    else:
+                        # User input is their own email address
+                        self.email_address = user_input
                 else:
-                    # User input is their own email address
-                    self.email_address = user_input
-            else:
-                # If there's no suggested email
+                    # If there's no suggested email, fall back to manual input
+                    print(f"{Fore.CYAN}{EMOJI['START']} {self.translator.get('register.manual_email_input') if self.translator else 'Please enter your email address:'}")
+                    self.email_address = input().strip()
+                    
+            elif choice == '3':
+                # Manual email input
                 print(f"{Fore.CYAN}{EMOJI['START']} {self.translator.get('register.manual_email_input') if self.translator else 'Please enter your email address:'}")
                 self.email_address = input().strip()
+                
+            else:
+                print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('register.invalid_choice') if self.translator else 'Invalid choice, using unlimited email'}")
+                result = self._generate_auto_email()
+                if result is None or result[0] is None:
+                    print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('register.email_template_failed') if self.translator else 'Failed to setup email template'}{Style.RESET_ALL}")
+                    return False
+                
+                auto_email, counter = result
+                self.email_address = auto_email
+                print(f"{Fore.GREEN}{EMOJI['MAIL']} {self.translator.get('register.auto_email_generated') if self.translator else 'Auto email generated'}: {auto_email}")
             
             # Validate if the email is valid
             if '@' not in self.email_address:

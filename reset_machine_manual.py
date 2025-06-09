@@ -113,7 +113,7 @@ def get_cursor_paths(translator=None) -> Tuple[str, str]:
         with open(config_file, 'w', encoding='utf-8') as f:
             config.write(f)
     else:
-        config.read(config_file, encoding='utf-8')
+        config.read(config_file, encoding='utf-8-sig')
     
     # Get path based on system
     if system == "Darwin":
@@ -167,7 +167,7 @@ def get_cursor_machine_id_path(translator=None) -> str:
     config = configparser.ConfigParser()
     
     if os.path.exists(config_file):
-        config.read(config_file)
+        config.read(config_file, encoding='utf-8-sig')
     
     if sys.platform == "win32":  # Windows
         if not config.has_section('WindowsPaths'):
@@ -207,7 +207,7 @@ def get_workbench_cursor_path(translator=None) -> str:
     config = configparser.ConfigParser()
 
     if os.path.exists(config_file):
-        config.read(config_file)
+        config.read(config_file, encoding='utf-8-sig')
     
     paths_map = {
         "Darwin": {  # macOS
@@ -293,7 +293,7 @@ def check_cursor_version(translator) -> bool:
         print(f"{Fore.CYAN}{EMOJI['INFO']} {translator.get('reset.reading_package_json', path=pkg_path)}{Style.RESET_ALL}")
         
         try:
-            with open(pkg_path, "r", encoding="utf-8") as f:
+            with open(pkg_path, "r", encoding="utf-8-sig") as f:
                 data = json.load(f)
         except UnicodeDecodeError:
             # If UTF-8 reading fails, try other encodings
@@ -360,7 +360,7 @@ def modify_workbench_js(file_path: str, translator=None) -> bool:
         # Create temporary file
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", errors="ignore", delete=False) as tmp_file:
             # Read original content
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as main_file:
+            with open(file_path, "r", encoding="utf-8-sig", errors="ignore") as main_file:
                 content = main_file.read()
 
             patterns = {
@@ -429,7 +429,7 @@ def modify_main_js(main_path: str, translator) -> bool:
         original_gid = original_stat.st_gid
 
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
-            with open(main_path, "r", encoding="utf-8") as main_file:
+            with open(main_path, "r", encoding="utf-8-sig") as main_file:
                 content = main_file.read()
 
             patterns = {
@@ -481,7 +481,7 @@ def patch_cursor_get_machine_id(translator) -> bool:
 
         # Get version number
         try:
-            with open(pkg_path, "r", encoding="utf-8") as f:
+            with open(pkg_path, "r", encoding="utf-8-sig") as f:
                 version = json.load(f)["version"]
             print(f"{Fore.CYAN}{EMOJI['INFO']} {translator.get('reset.current_version', version=version)}{Style.RESET_ALL}")
         except Exception as e:
@@ -525,7 +525,7 @@ class MachineIDResetter:
         if not os.path.exists(config_file):
             raise FileNotFoundError(f"Config file not found: {config_file}")
         
-        config.read(config_file, encoding='utf-8')
+        config.read(config_file, encoding='utf-8-sig')
 
         # Check operating system
         if sys.platform == "win32":  # Windows
@@ -750,7 +750,7 @@ class MachineIDResetter:
                 return False
 
             print(f"{Fore.CYAN}{EMOJI['FILE']} {self.translator.get('reset.reading')}...{Style.RESET_ALL}")
-            with open(self.db_path, "r", encoding="utf-8") as f:
+            with open(self.db_path, "r", encoding="utf-8-sig") as f:
                 config = json.load(f)
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -777,9 +777,7 @@ class MachineIDResetter:
 
             # Modify workbench.desktop.main.js
             workbench_path = get_workbench_cursor_path(self.translator)
-            modify_workbench_js(workbench_path, self.translator)
-
-            # Check Cursor version and perform corresponding actions
+            modify_workbench_js(workbench_path, self.translator)            # Check Cursor version and perform corresponding actions
             
             greater_than_0_45 = check_cursor_version(self.translator)
             if greater_than_0_45:

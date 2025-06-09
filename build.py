@@ -54,12 +54,43 @@ def build():
     os.system("cls" if platform.system().lower() == "windows" else "clear")
     
     # Display logo
-    print_logo()
+    print_logo()    # Clean PyInstaller cache and dist directory
+    print("\033[93m🧹 Cleaning build cache and dist directory...\033[0m")
     
-    # Clean PyInstaller cache
-    print("\033[93m🧹 Cleaning build cache...\033[0m")
-    if os.path.exists('build'):
-        shutil.rmtree('build')
+    def safe_remove_tree(path):
+        """Safely remove directory tree with retry logic"""
+        if not os.path.exists(path):
+            return True
+        
+        max_retries = 3
+        retry_delay = 1
+        
+        for attempt in range(max_retries):
+            try:
+                shutil.rmtree(path)
+                return True
+            except PermissionError as e:
+                if attempt < max_retries - 1:
+                    print(f"\033[93m⚠️ Permission error removing {path}, retrying in {retry_delay} seconds... (attempt {attempt + 1}/{max_retries})\033[0m")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    print(f"\033[91m❌ Failed to remove {path}: {str(e)}\033[0m")
+                    print(f"\033[93m💡 Tip: Please close any running executables from the dist folder and try again.\033[0m")
+                    return False
+            except Exception as e:
+                print(f"\033[91m❌ Error removing {path}: {str(e)}\033[0m")
+                return False
+        
+        return False
+    
+    # Clean build directory
+    if not safe_remove_tree('build'):
+        return False
+    
+    # Clean dist directory
+    if not safe_remove_tree('dist'):
+        return False
     
     # Reload environment variables to ensure getting the latest version
     load_dotenv(override=True)

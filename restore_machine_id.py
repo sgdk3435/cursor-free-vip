@@ -49,7 +49,7 @@ class MachineIDRestorer:
         if not os.path.exists(config_file):
             raise FileNotFoundError(f"Config file not found: {config_file}")
         
-        config.read(config_file, encoding='utf-8')
+        config.read(config_file, encoding='utf-8-sig')
         
         # 根据操作系统获取路径
         if sys.platform == "win32":  # Windows
