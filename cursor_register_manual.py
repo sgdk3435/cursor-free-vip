@@ -47,8 +47,7 @@ class CursorRegistration:
         
         # initialize Faker instance
         self.faker = Faker()
-        
-        # generate account information
+          # generate account information
         self.password = self._generate_password()
         self.first_name = self.faker.first_name()
         self.last_name = self.faker.last_name()
@@ -59,11 +58,11 @@ class CursorRegistration:
         print(f"\n{Fore.CYAN}{EMOJI['PASSWORD']} {self.translator.get('register.password')}: {self.password} {Style.RESET_ALL}")
         print(f"{Fore.CYAN}{EMOJI['FORM']} {self.translator.get('register.first_name')}: {self.first_name} {Style.RESET_ALL}")
         print(f"{Fore.CYAN}{EMOJI['FORM']} {self.translator.get('register.last_name')}: {self.last_name} {Style.RESET_ALL}")
-
+        
     def _generate_password(self, length=12):
         """Generate password"""
         return self.faker.password(length=length, special_chars=True, digits=True, upper_case=True, lower_case=True)
-
+        
     def _get_email_config_file(self):
         """Get email configuration file path"""
         try:
@@ -80,11 +79,25 @@ class CursorRegistration:
             
             config_dir = os.path.join(documents_path, ".cursor-free-vip")
             if not os.path.exists(config_dir):
-                os.makedirs(config_dir, exist_ok=True)
-            return os.path.join(config_dir, "email_config.txt")
+                try:
+                    os.makedirs(config_dir, exist_ok=True)
+                except Exception:
+                    # 如果无法创建目录，使用当前目录
+                    return os.path.join(os.getcwd(), "email_config.txt")
+            
+            # 尝试写入测试文件以确保有写权限
+            test_path = os.path.join(config_dir, "test_write.tmp")
+            try:
+                with open(test_path, 'w') as f:
+                    f.write("test")
+                os.remove(test_path)
+                return os.path.join(config_dir, "email_config.txt")
+            except Exception:
+                # 如果没有写权限，使用当前目录
+                return os.path.join(os.getcwd(), "email_config.txt")
         except Exception:
             # Final fallback to current directory
-            return "email_config.txt"
+            return os.path.join(os.getcwd(), "email_config.txt")
 
     def _read_email_config(self):
         """Read email configuration (template and counter)"""
@@ -113,6 +126,37 @@ class CursorRegistration:
         except Exception:
             return False
 
+    def _save_registration_record(self, email, username, password):
+        """Save registration record to the top of email_config.txt"""
+        config_file = self._get_email_config_file()
+        try:
+            # Read existing content first
+            existing_content = ""
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    existing_content = f.read()
+              # Create new record
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            new_record = f"[注册记录 - {timestamp}]\n"
+            new_record += f"邮箱: {email}\n"
+            new_record += f"用户名: {username}\n"
+            new_record += f"密码: {password}\n"
+            new_record += f"{'='*50}\n\n"
+            
+            # Write new record at the top, followed by existing content
+            with open(config_file, 'w', encoding='utf-8') as f:
+                f.write(new_record + existing_content)
+            
+            # 显示文件的确切位置，以便用户能找到它
+            print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {self.translator.get('register.registration_record_saved') if self.translator else '注册信息已保存到 email_config.txt'}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{EMOJI['INFO']} 文件位置: {os.path.abspath(config_file)}{Style.RESET_ALL}")
+            return True
+            
+        except Exception as e:
+            print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('register.save_record_failed') if self.translator else '保存注册记录失败'}: {str(e)}{Style.RESET_ALL}")
+            return False
+
     def _generate_auto_email(self):
         """Generate automatic email with counter based on template"""
         template, counter = self._read_email_config()
@@ -130,8 +174,7 @@ class CursorRegistration:
             # Save initial template with counter 0
             self._write_email_config(template, 0)
             counter = 0
-        
-        # Generate email based on template and counter
+          # Generate email based on template and counter
         if counter == 0:
             # First email uses template as is
             email = template
@@ -139,7 +182,8 @@ class CursorRegistration:
             # Add counter to the local part of email
             local_part, domain = template.split('@', 1)
             email = f"{local_part}{counter:05X}@{domain}"  # 5-digit hex format
-          # Increment counter for next use
+        
+        # Increment counter for next use
         self._write_email_config(template, counter + 1)
         
         return email, counter
@@ -311,7 +355,7 @@ class CursorRegistration:
             retry_interval = 2
             attempts = 0
 
-            while attempts < max_attempts:
+            while attempts < max_attempts:                
                 try:
                     cookies = self.signup_tab.cookies()
                     for cookie in cookies:
@@ -327,7 +371,6 @@ class CursorRegistration:
                         time.sleep(retry_interval)
                     else:
                         print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('register.token_max_attempts', max=max_attempts)}{Style.RESET_ALL}")
-
                 except Exception as e:
                     print(f"{Fore.RED}{EMOJI['ERROR']} {self.translator.get('register.token_failed', error=str(e))}{Style.RESET_ALL}")
                     attempts += 1
@@ -360,6 +403,9 @@ class CursorRegistration:
             # Save account information to file using AccountManager
             account_manager = AccountManager(self.translator)
             if account_manager.save_account_info(self.email_address, self.password, token, total_usage):
+                # Save registration record to email_config.txt
+                full_name = f"{self.first_name} {self.last_name}"
+                self._save_registration_record(self.email_address, full_name, self.password)
                 return True
             else:
                 return False

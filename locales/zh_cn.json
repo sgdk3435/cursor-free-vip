@@ -237,11 +237,12 @@
         "invalid_email_template": "无效的邮箱模板",
         "email_template_failed": "邮箱模板设置失败",
         "auto_email_generated": "自动邮箱已生成",
-        "current_counter": "当前计数器",
-        "invalid_email": "无效邮箱地址",
+        "current_counter": "当前计数器",        "invalid_email": "无效邮箱地址",
         "email_setup_failed": "邮箱设置失败: {error}",
         "invalid_code": "无效验证码",
-        "code_input_failed": "验证码输入失败: {error}"
+        "code_input_failed": "验证码输入失败: {error}",
+        "registration_record_saved": "注册信息已保存到 email_config.txt",
+        "save_record_failed": "保存注册记录失败"
     },
     "auth": {
         "title": "Cursor 认证管理器",
