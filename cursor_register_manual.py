@@ -164,7 +164,7 @@ class CursorRegistration:
         if template is None:
             # First time - ask user for template
             print(f"{Fore.CYAN}{EMOJI['MAIL']} {self.translator.get('register.first_time_email_setup') if self.translator else 'First time email setup - please enter your email template:'}")
-            print(f"{Fore.YELLOW}{EMOJI['INFO']} {self.translator.get('register.email_template_example') if self.translator else 'Example: aicraft01@2925.com (numbers will be added automatically)'}")
+            print(f"{Fore.YELLOW}{EMOJI['INFO']} {self.translator.get('register.email_template_example') if self.translator else 'Example: aicraft000@2925.com (numbers will be added automatically)'}")
             template = input(f"{Fore.CYAN}> {Style.RESET_ALL}").strip()
             
             if '@' not in template:
